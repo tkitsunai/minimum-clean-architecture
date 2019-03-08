@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"github.com/tkitsunai/minimum-clean-architecture/config"
@@ -15,12 +16,13 @@ func (r *Application) Run() error {
 	return r.echo.Start(config.AppPort())
 }
 
-func NewApplication() *Application {
+func NewApplication(
+	con *gorm.DB,
+) *Application {
+
 	e := echo.New()
-
-	e.Add(rest.FactoryUserResource().GetUsers())
-	e.Add(rest.FactoryUserResource().GetUserById())
-
+	e.Add(rest.FactoryUserResource(con).GetUsers())
+	e.Add(rest.FactoryUserResource(con).GetUserById())
 	e.Use(middleware.Logger())
 
 	return &Application{

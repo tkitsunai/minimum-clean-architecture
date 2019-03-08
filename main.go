@@ -1,7 +1,15 @@
 package main
 
-import "github.com/tkitsunai/minimum-clean-architecture/rest"
+import (
+	"github.com/tkitsunai/minimum-clean-architecture/config"
+	"github.com/tkitsunai/minimum-clean-architecture/db"
+	"github.com/tkitsunai/minimum-clean-architecture/rest"
+)
 
 func main() {
-	rest.NewApplication().Run()
+	con := db.New(db.DialectMysql, config.DBConnection().Source)
+	defer con.CloseDB()
+	rest.NewApplication(
+		con.GetDB(),
+	).Run()
 }

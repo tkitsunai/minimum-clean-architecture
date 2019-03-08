@@ -3,13 +3,18 @@ package driver
 import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
-	"github.com/tkitsunai/minimum-clean-architecture/config"
 )
 
-type UserDriver struct{}
+type UserDriver struct {
+	con *gorm.DB
+}
 
-func NewUserDriver() *UserDriver {
-	return &UserDriver{}
+func NewUserDriver(
+	con *gorm.DB,
+) *UserDriver {
+	return &UserDriver{
+		con: con,
+	}
 }
 
 type UserModels []UserModel
@@ -28,15 +33,9 @@ const (
 )
 
 func (u *UserDriver) FindAll() ([]UserModel, error) {
-	db, err := gorm.Open(dialectMysql, config.DBConnection().Source)
-
-	if err != nil {
-		return nil, err
-	}
-
 	users := []UserModel{}
 
-	if res := db.Find(&users); res.Error != nil {
+	if res := u.con.Find(&users); res.Error != nil {
 		return nil, res.Error
 	}
 
@@ -44,28 +43,31 @@ func (u *UserDriver) FindAll() ([]UserModel, error) {
 }
 
 func (u *UserDriver) SaveAll(users UserModels) error {
-	db, err := gorm.Open(dialectMysql, config.DBConnection().Source)
+	tx := u.con.Begin()
 
-	if err != nil {
-		return err
+	if tx.Error != nil {
+		return tx.Error
 	}
-
-	db.Begin()
 
 	var errors []error
 	for _, user := range users {
-		result := db.Create(user)
+		result := tx.Create(user)
 		if result.Error != nil {
 			errors = append(errors, result.Error)
 		}
 	}
 
-	if len(errors) > 0 {
-		db.Rollback()
-	}
+	defer rollBackHasErrors(errors, tx)
+	defer tx.Commit()
 
-	db.Commit()
 	return nil
+}
+
+func rollBackHasErrors(errors []error, tx *gorm.DB) error {
+	if errors == nil || len(errors) == 0 {
+		return nil
+	}
+	return tx.Rollback().Error
 }
 
 func (u *UserDriver) Save(user UserModel) error {
